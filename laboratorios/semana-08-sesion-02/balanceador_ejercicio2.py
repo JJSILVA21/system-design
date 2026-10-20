@@ -15,6 +15,18 @@ class BalanceadorRoundRobin:
         self.siguiente = 0
 
     def enviar(self, duracion):
+        cantidad = len(self.servidores)
+
+        for intento in range(cantidad):
+            indice = (self.siguiente + intento) % cantidad
+            servidor = self.servidores[indice]
+
+            if servidor.health_check() and servidor.atender(duracion):
+                self.siguiente = (indice + 1) % cantidad
+                return servidor.nombre
+
+        return None
+            
         # TODO: reparte las solicitudes en turnos: la primera al servidor
         # en la posicion self.siguiente, la proxima al que sigue, y al
         # llegar al final de la lista, vuelve al primero (el operador %
@@ -28,4 +40,6 @@ class BalanceadorRoundRobin:
         # Si un servidor acepto la solicitud, deja self.siguiente apuntando
         # al servidor que viene despues de el y devuelve servidor.nombre.
         # Si ninguno la acepto, devuelve None.
-        raise NotImplementedError
+
+
+        
