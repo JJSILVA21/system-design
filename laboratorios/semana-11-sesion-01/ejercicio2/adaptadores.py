@@ -45,7 +45,13 @@ class RepositorioSqlite(RepositorioDeReservas):
             (estudiante, cancha, fecha, hora),
         )
         self.conexion.commit()
-        return Reserva("r-" + str(cursor.lastrowid), estudiante, cancha, fecha, hora)
+        return Reserva(
+            "r-" + str(cursor.lastrowid),
+            estudiante,
+            cancha,
+            fecha,
+            hora,
+        )
 
 
 class RepositorioEnMemoria(RepositorioDeReservas):
@@ -55,21 +61,34 @@ class RepositorioEnMemoria(RepositorioDeReservas):
 
     def ocupada(self, cancha, fecha, hora):
         for reserva in self.reservas.values():
-            if reserva.cancha == cancha and reserva.fecha == fecha and reserva.hora == hora:
+            if (
+                reserva.cancha == cancha
+                and reserva.fecha == fecha
+                and reserva.hora == hora
+            ):
                 return True
         return False
 
     def contar_del_estudiante(self, estudiante, fecha):
         cantidad = 0
         for reserva in self.reservas.values():
-            if reserva.estudiante == estudiante and reserva.fecha == fecha:
+            if (
+                reserva.estudiante == estudiante
+                and reserva.fecha == fecha
+            ):
                 cantidad = cantidad + 1
         return cantidad
 
     def guardar(self, estudiante, cancha, fecha, hora):
         id_reserva = "r-" + str(self.siguiente_numero)
         self.siguiente_numero = self.siguiente_numero + 1
-        reserva = Reserva(id_reserva, estudiante, cancha, fecha, hora)
+        reserva = Reserva(
+            id_reserva,
+            estudiante,
+            cancha,
+            fecha,
+            hora,
+        )
         self.reservas[id_reserva] = reserva
         return reserva
 
@@ -89,14 +108,30 @@ class ApiHttp:
     def manejar(self, solicitud):
         if solicitud.metodo != "POST" or solicitud.ruta != "/v1/reservas":
             return Respuesta(404, {"error": "ruta desconocida"})
+
         cuerpo = solicitud.cuerpo
+
         for campo in ["estudiante", "cancha", "fecha", "hora"]:
             if campo not in cuerpo:
                 return Respuesta(400, {"error": "faltan campos"})
-        resultado = self.reservar_cancha.ejecutar(cuerpo["estudiante"], cuerpo["cancha"], cuerpo["fecha"], cuerpo["hora"])
+
+        resultado = self.reservar_cancha.ejecutar(
+            cuerpo["estudiante"],
+            cuerpo["cancha"],
+            cuerpo["fecha"],
+            cuerpo["hora"],
+        )
+
         if resultado["estado"] == "rechazada":
-            return Respuesta(CODIGOS_POR_MOTIVO[resultado["motivo"]], {"error": resultado["motivo"]})
-        return Respuesta(201, resultado["reserva"].como_diccionario())
+            return Respuesta(
+                CODIGOS_POR_MOTIVO[resultado["motivo"]],
+                {"error": resultado["motivo"]},
+            )
+
+        return Respuesta(
+            201,
+            resultado["reserva"].como_diccionario(),
+        )
 
 
 class NotificadorEnMemoria(Notificador):
@@ -104,6 +139,9 @@ class NotificadorEnMemoria(Notificador):
     # tupla (estudiante, mensaje), en el orden en que llegan.
     def __init__(self):
         self.enviados = []
+
+    def notificar(self, estudiante, mensaje):
+        self.enviados.append((estudiante, mensaje))
 
 
 class AdaptadorDeMensajeria:
@@ -120,4 +158,41 @@ class AdaptadorDeMensajeria:
         # Si no, llama al caso de uso y responde
         # "Listo: reserva r-1, cancha-1, 2026-11-10 a las 18:00" o
         # "No se pudo reservar: hora ocupada" (con el motivo que sea).
-        raise NotImplementedError
+        partes = texto.split()
+
+        if (
+            len(partes) != 4
+            or partes[0] != "reservar"
+            or not partes[3].isdigit()
+        ):
+            return (
+                "No entendi. Escribe: "
+                "reservar <cancha> <fecha> <hora>"
+            )
+
+        cancha = partes[1]
+        fecha = partes[2]
+        hora = int(partes[3])
+
+        resultado = self.reservar_cancha.ejecutar(
+            estudiante,
+            cancha,
+            fecha,
+            hora,
+        )
+
+        if resultado["estado"] == "rechazada":
+            return "No se pudo reservar: " + resultado["motivo"]
+
+        reserva = resultado["reserva"]
+
+        return (
+            "Listo: reserva "
+            + reserva.id
+            + ", "
+            + reserva.cancha
+            + ", "
+            + reserva.fecha
+            + " a las "
+            + texto_de_hora(reserva.hora)
+        )

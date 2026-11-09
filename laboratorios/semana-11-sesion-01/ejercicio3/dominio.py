@@ -12,10 +12,30 @@ class Reserva:
         self.hora = hora
 
 
-def clasificar_cancelacion(fecha_reserva, hora_reserva, fecha_actual, hora_actual):
+def clasificar_cancelacion(
+    fecha_reserva,
+    hora_reserva,
+    fecha_actual,
+    hora_actual,
+):
     """Devuelve "vencida" si la reserva ya empezo o ya paso, "tardia" si es
     el mismo dia con menos de MINIMO_HORAS_DE_AVISO horas de aviso, o
     "a tiempo". Las fechas son textos "AAAA-MM-DD": en ese formato,
     comparar dos fechas con < las compara en el tiempo."""
     # TODO 1: las mismas condiciones que cancelaciones_acopladas.py.
+    if fecha_reserva < fecha_actual:
+        return "vencida"
+
+    if (
+        fecha_reserva == fecha_actual
+        and hora_reserva <= hora_actual
+    ):
+        return "vencida"
+
+    if (
+        fecha_reserva == fecha_actual
+        and hora_reserva - hora_actual < MINIMO_HORAS_DE_AVISO
+    ):
+        return "tardia"
+
     return "a tiempo"

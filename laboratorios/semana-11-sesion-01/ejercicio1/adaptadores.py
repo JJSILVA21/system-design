@@ -44,7 +44,13 @@ class RepositorioSqlite(RepositorioDeReservas):
             (estudiante, cancha, fecha, hora),
         )
         self.conexion.commit()
-        return Reserva("r-" + str(cursor.lastrowid), estudiante, cancha, fecha, hora)
+        return Reserva(
+            "r-" + str(cursor.lastrowid),
+            estudiante,
+            cancha,
+            fecha,
+            hora,
+        )
 
 
 class RepositorioEnMemoria(RepositorioDeReservas):
@@ -55,6 +61,43 @@ class RepositorioEnMemoria(RepositorioDeReservas):
     # TODO 3: implementa ocupada, contar_del_estudiante y guardar sobre
     # el diccionario self.reservas (id -> Reserva). Los ids son "r-1",
     # "r-2", ..., igual que en SQLite.
+    def ocupada(self, cancha, fecha, hora):
+        for reserva in self.reservas.values():
+            if (
+                reserva.cancha == cancha
+                and reserva.fecha == fecha
+                and reserva.hora == hora
+            ):
+                return True
+
+        return False
+
+    def contar_del_estudiante(self, estudiante, fecha):
+        cantidad = 0
+
+        for reserva in self.reservas.values():
+            if (
+                reserva.estudiante == estudiante
+                and reserva.fecha == fecha
+            ):
+                cantidad += 1
+
+        return cantidad
+
+    def guardar(self, estudiante, cancha, fecha, hora):
+        id_reserva = "r-" + str(self.siguiente_numero)
+        self.siguiente_numero += 1
+
+        reserva = Reserva(
+            id_reserva,
+            estudiante,
+            cancha,
+            fecha,
+            hora,
+        )
+
+        self.reservas[id_reserva] = reserva
+        return reserva
 
 
 CODIGOS_POR_MOTIVO = {
@@ -72,11 +115,27 @@ class ApiHttp:
     def manejar(self, solicitud):
         if solicitud.metodo != "POST" or solicitud.ruta != "/v1/reservas":
             return Respuesta(404, {"error": "ruta desconocida"})
+
         cuerpo = solicitud.cuerpo
+
         for campo in ["estudiante", "cancha", "fecha", "hora"]:
             if campo not in cuerpo:
                 return Respuesta(400, {"error": "faltan campos"})
-        resultado = self.reservar_cancha.ejecutar(cuerpo["estudiante"], cuerpo["cancha"], cuerpo["fecha"], cuerpo["hora"])
+
+        resultado = self.reservar_cancha.ejecutar(
+            cuerpo["estudiante"],
+            cuerpo["cancha"],
+            cuerpo["fecha"],
+            cuerpo["hora"],
+        )
+
         if resultado["estado"] == "rechazada":
-            return Respuesta(CODIGOS_POR_MOTIVO[resultado["motivo"]], {"error": resultado["motivo"]})
-        return Respuesta(201, resultado["reserva"].como_diccionario())
+            return Respuesta(
+                CODIGOS_POR_MOTIVO[resultado["motivo"]],
+                {"error": resultado["motivo"]},
+            )
+
+        return Respuesta(
+            201,
+            resultado["reserva"].como_diccionario(),
+        )

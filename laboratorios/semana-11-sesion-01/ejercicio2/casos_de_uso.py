@@ -10,14 +10,59 @@ class ReservarCancha:
     # Notificador), y al confirmar una reserva le envia al estudiante
     # "Reserva r-1 confirmada: cancha-1, 2026-11-10 a las 18:00" (con
     # texto_de_hora para la hora). Una reserva rechazada no notifica nada.
-    def __init__(self, repositorio):
+    def __init__(self, repositorio, notificador):
         self.repositorio = repositorio
+        self.notificador = notificador
 
     def ejecutar(self, estudiante, cancha, fecha, hora):
-        hora_ocupada = self.repositorio.ocupada(cancha, fecha, hora)
-        reservas_del_dia = self.repositorio.contar_del_estudiante(estudiante, fecha)
-        motivo = motivo_de_rechazo(cancha, hora, hora_ocupada, reservas_del_dia)
+        hora_ocupada = self.repositorio.ocupada(
+            cancha,
+            fecha,
+            hora,
+        )
+
+        reservas_del_dia = self.repositorio.contar_del_estudiante(
+            estudiante,
+            fecha,
+        )
+
+        motivo = motivo_de_rechazo(
+            cancha,
+            hora,
+            hora_ocupada,
+            reservas_del_dia,
+        )
+
         if motivo is not None:
-            return {"estado": "rechazada", "motivo": motivo}
-        reserva = self.repositorio.guardar(estudiante, cancha, fecha, hora)
-        return {"estado": "confirmada", "reserva": reserva}
+            return {
+                "estado": "rechazada",
+                "motivo": motivo,
+            }
+
+        reserva = self.repositorio.guardar(
+            estudiante,
+            cancha,
+            fecha,
+            hora,
+        )
+
+        mensaje = (
+            "Reserva "
+            + reserva.id
+            + " confirmada: "
+            + reserva.cancha
+            + ", "
+            + reserva.fecha
+            + " a las "
+            + texto_de_hora(reserva.hora)
+        )
+
+        self.notificador.notificar(
+            estudiante,
+            mensaje,
+        )
+
+        return {
+            "estado": "confirmada",
+            "reserva": reserva,
+        }
