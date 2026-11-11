@@ -15,7 +15,7 @@ franja_ejercicio1.py, completo.
 
 Corre las pruebas con:
 
-    pytest test_calendario_ejercicio2.py
+    pytest ≈
 
 No cambies los nombres de la clase ni de los metodos: los tests
 dependen de que existan exactamente asi.
@@ -35,7 +35,13 @@ class CalendarioDeCancha:
     def horas_de(self, estudiante):
         # TODO 1: cuantas horas suman las reservas del estudiante en este
         # calendario.
-        raise NotImplementedError
+        total = 0
+
+        for reserva in self._reservas.values():
+            if reserva.estudiante == estudiante:
+                total += reserva.franja.duracion()
+
+        return total
 
     def reservar(self, id_reserva, estudiante, inicio, fin):
         # TODO 2: crea la FranjaHoraria con la fecha del calendario (si es
@@ -45,22 +51,100 @@ class CalendarioDeCancha:
         # - el estudiante pasaria de MAXIMO_HORAS_POR_ESTUDIANTE:
         #   ValueError("limite de horas alcanzado").
         # Si todo se cumple, guarda la Reserva en self._reservas por su id.
-        raise NotImplementedError
+        franja = FranjaHoraria(
+            self.fecha,
+            inicio,
+            fin,
+        )
+
+        if id_reserva in self._reservas:
+            raise ValueError("id repetido")
+
+        for reserva in self._reservas.values():
+            if franja.se_solapa_con(reserva.franja):
+                raise ValueError("franja ocupada")
+
+        nuevas_horas = (
+            self.horas_de(estudiante)
+            + franja.duracion()
+        )
+
+        if nuevas_horas > MAXIMO_HORAS_POR_ESTUDIANTE:
+            raise ValueError("limite de horas alcanzado")
+
+        self._reservas[id_reserva] = Reserva(
+            id_reserva,
+            estudiante,
+            franja,
+        )
 
     def mover(self, id_reserva, nuevo_inicio, nuevo_fin):
         # TODO 3: cambia la franja de una reserva existente, con las mismas
         # dos reglas, sin comparar la reserva consigo misma.
         # Si el id no existe: ValueError("reserva desconocida").
-        raise NotImplementedError
+        if id_reserva not in self._reservas:
+            raise ValueError("reserva desconocida")
+
+        nueva_franja = FranjaHoraria(
+            self.fecha,
+            nuevo_inicio,
+            nuevo_fin,
+        )
+
+        reserva_actual = self._reservas[id_reserva]
+
+        for otro_id, otra_reserva in self._reservas.items():
+            if otro_id == id_reserva:
+                continue
+
+            if nueva_franja.se_solapa_con(otra_reserva.franja):
+                raise ValueError("franja ocupada")
+
+        horas_sin_reserva_actual = (
+            self.horas_de(reserva_actual.estudiante)
+            - reserva_actual.franja.duracion()
+        )
+
+        nuevas_horas = (
+            horas_sin_reserva_actual
+            + nueva_franja.duracion()
+        )
+
+        if nuevas_horas > MAXIMO_HORAS_POR_ESTUDIANTE:
+            raise ValueError("limite de horas alcanzado")
+
+        self._reservas[id_reserva] = Reserva(
+            id_reserva,
+            reserva_actual.estudiante,
+            nueva_franja,
+        )
 
     def cancelar(self, id_reserva):
         # TODO 4: borra la reserva. Si el id no existe:
         # ValueError("reserva desconocida").
-        raise NotImplementedError
+        if id_reserva not in self._reservas:
+            raise ValueError("reserva desconocida")
+
+        del self._reservas[id_reserva]
 
     def reservas(self):
         # TODO 5: devuelve las reservas como una lista de tuplas
         # (id, estudiante, franja), ordenada por hora de inicio. Nada de
         # lo que devuelvas puede servir para cambiar el calendario desde
         # afuera.
-        raise NotImplementedError
+        resultado = []
+
+        for reserva in self._reservas.values():
+            resultado.append(
+                (
+                    reserva.id,
+                    reserva.estudiante,
+                    reserva.franja,
+                )
+            )
+
+        resultado.sort(
+            key=lambda datos: datos[2].inicio
+        )
+
+        return resultado
