@@ -50,4 +50,204 @@ clase completa. Corre las pruebas con:
 """
 
 from eventos_ejercicio2 import ObservadorDeReservas
-from reservas import MAXIMO_HORAS_POR_ESTUDIANTE, FranjaHoraria
+from reservas import (
+    MAXIMO_HORAS_POR_ESTUDIANTE,
+    FranjaHoraria,
+)
+
+
+class ListaDeEsperaConPlazo(ObservadorDeReservas):
+    def __init__(
+        self,
+        calendario,
+        notificador,
+        reloj,
+        minutos_para_aceptar=15,
+    ):
+        self.calendario = calendario
+        self.notificador = notificador
+        self.reloj = reloj
+        self.minutos_para_aceptar = minutos_para_aceptar
+        self.esperando = {}
+        self.ofertas = {}
+
+        self.calendario.suscribir(
+            "liberada",
+            self,
+        )
+
+        self.calendario.suscribir(
+            "ocupada",
+            self,
+        )
+
+    def anotar(self, estudiante, inicio, fin):
+        franja = FranjaHoraria(
+            self.calendario.fecha,
+            inicio,
+            fin,
+        )
+
+        if franja not in self.esperando:
+            self.esperando[franja] = []
+
+        if estudiante in self.esperando[franja]:
+            raise ValueError("ya esta en la lista")
+
+        if franja in self.ofertas:
+            estudiante_con_oferta, vencimiento = self.ofertas[franja]
+
+            if estudiante_con_oferta == estudiante:
+                raise ValueError("ya esta en la lista")
+
+        if self.calendario.esta_libre(inicio, fin):
+            raise ValueError("la franja esta libre")
+
+        self.esperando[franja].append(estudiante)
+
+    def al_liberarse(self, cancha, franja):
+        for franja_esperada in list(self.esperando):
+            if (
+                franja_esperada.se_solapa_con(franja)
+                and self.calendario.esta_libre(
+                    franja_esperada.inicio,
+                    franja_esperada.fin,
+                )
+            ):
+                self._ofrecer_siguiente(franja_esperada)
+
+    def al_ocuparse(self, cancha, franja):
+        for franja_ofrecida in list(self.ofertas):
+            if franja_ofrecida.se_solapa_con(franja):
+                estudiante, vencimiento = self.ofertas.pop(
+                    franja_ofrecida
+                )
+
+                mensaje = (
+                    "La franja "
+                    + self._texto_de(franja_ofrecida)
+                    + " ya no esta disponible"
+                )
+
+                self.notificador.enviar(
+                    estudiante,
+                    mensaje,
+                )
+
+    def aceptar(
+        self,
+        estudiante,
+        inicio,
+        fin,
+        id_reserva,
+    ):
+        franja = FranjaHoraria(
+            self.calendario.fecha,
+            inicio,
+            fin,
+        )
+
+        if franja not in self.ofertas:
+            raise ValueError("no tienes una oferta")
+
+        estudiante_con_oferta, vencimiento = self.ofertas[franja]
+
+        if estudiante_con_oferta != estudiante:
+            raise ValueError("no tienes una oferta")
+
+        if self.reloj.ahora() > vencimiento:
+            raise ValueError("oferta vencida")
+
+        self.ofertas.pop(franja)
+
+        self.calendario.reservar(
+            id_reserva,
+            estudiante,
+            inicio,
+            fin,
+        )
+
+    def revisar_vencidas(self):
+        ahora = self.reloj.ahora()
+
+        for franja in list(self.ofertas):
+            estudiante, vencimiento = self.ofertas[franja]
+
+            if ahora > vencimiento:
+                self.ofertas.pop(franja)
+
+                mensaje = (
+                    "Vencio tu oferta de "
+                    + self._texto_de(franja)
+                )
+
+                self.notificador.enviar(
+                    estudiante,
+                    mensaje,
+                )
+
+                self._ofrecer_siguiente(franja)
+
+    def _ofrecer_siguiente(self, franja):
+        if franja in self.ofertas:
+            return
+
+        if franja not in self.esperando:
+            return
+
+        while len(self.esperando[franja]) > 0:
+            estudiante = self.esperando[franja].pop(0)
+
+            horas_totales = (
+                self.calendario.horas_de(estudiante)
+                + franja.duracion()
+            )
+
+            if horas_totales > MAXIMO_HORAS_POR_ESTUDIANTE:
+                mensaje = (
+                    "No puedes tomar "
+                    + self._texto_de(franja)
+                    + ": pasarias el limite de horas"
+                )
+
+                self.notificador.enviar(
+                    estudiante,
+                    mensaje,
+                )
+
+                continue
+
+            vencimiento = (
+                self.reloj.ahora()
+                + self.minutos_para_aceptar
+            )
+
+            self.ofertas[franja] = (
+                estudiante,
+                vencimiento,
+            )
+
+            mensaje = (
+                "Tienes "
+                + str(self.minutos_para_aceptar)
+                + " minutos para aceptar "
+                + self._texto_de(franja)
+            )
+
+            self.notificador.enviar(
+                estudiante,
+                mensaje,
+            )
+
+            return
+
+    def _texto_de(self, franja):
+        return (
+            self.calendario.cancha
+            + " "
+            + franja.fecha
+            + " "
+            + str(franja.inicio)
+            + "-"
+            + str(franja.fin)
+        )
