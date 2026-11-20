@@ -33,18 +33,31 @@ class FeedEnEscritura:
     def seguir(self, estudiante, autor):
         if autor not in self.seguidores:
             self.seguidores[autor] = []
+
         if estudiante not in self.seguidores[autor]:
             self.seguidores[autor].append(estudiante)
 
     def publicar(self, publicacion):
-        # TODO 1: agrega la publicacion a la lista "feed:<estudiante>" de cada
-        # seguidor del autor, con self.almacen.agregar.
-        raise NotImplementedError
+        # Agrega la publicacion al feed de cada seguidor del autor.
+        for estudiante in self.seguidores.get(
+            publicacion.autor,
+            [],
+        ):
+            self.almacen.agregar(
+                "feed:" + estudiante,
+                publicacion,
+            )
 
     def leer(self, estudiante, cantidad=10):
-        # TODO 2: lee la lista "feed:<estudiante>" (una sola lectura) y devuelve
-        # las `cantidad` mas recientes, con mas_recientes.
-        raise NotImplementedError
+        # Lee una sola lista: el feed preparado del estudiante.
+        publicaciones = self.almacen.leer(
+            "feed:" + estudiante
+        )
+
+        return mas_recientes(
+            publicaciones,
+            cantidad,
+        )
 
 
 class FeedEnLectura:
@@ -55,43 +68,111 @@ class FeedEnLectura:
     def seguir(self, estudiante, autor):
         if estudiante not in self.seguidos:
             self.seguidos[estudiante] = []
+
         if autor not in self.seguidos[estudiante]:
             self.seguidos[estudiante].append(autor)
 
     def publicar(self, publicacion):
-        # TODO 3: agrega la publicacion una sola vez, a la lista "autor:<autor>".
-        raise NotImplementedError
+        # Guarda la publicacion una sola vez en la lista de su autor.
+        self.almacen.agregar(
+            "autor:" + publicacion.autor,
+            publicacion,
+        )
 
     def leer(self, estudiante, cantidad=10):
-        # TODO 4: lee la lista "autor:<autor>" de cada autor que sigue el
-        # estudiante (una lectura por autor), juntalas y devuelve las
-        # `cantidad` mas recientes.
-        raise NotImplementedError
+        # Junta las publicaciones de todos los autores que sigue.
+        publicaciones = []
+
+        for autor in self.seguidos.get(estudiante, []):
+            publicaciones.extend(
+                self.almacen.leer(
+                    "autor:" + autor
+                )
+            )
+
+        return mas_recientes(
+            publicaciones,
+            cantidad,
+        )
 
 
 def simular(feed):
     for i in range(10):
-        feed.seguir("hincha-" + str(i), "futbol-arquitectura")
+        feed.seguir(
+            "hincha-" + str(i),
+            "futbol-arquitectura",
+        )
+
     for i in range(8000):
-        feed.seguir("estudiante-" + str(i), "final-campeonato")
-    for i in range(300):
-        feed.seguir("ana", "equipo-" + str(i))
-
-    feed.publicar(Publicacion("p1", "futbol-arquitectura", 100, "Partido el jueves 18:00"))
-    print("  Escrituras despues del equipo de arquitectura:", feed.almacen.escrituras)
-    feed.publicar(Publicacion("p2", "final-campeonato", 200, "La final es el sabado"))
-    print("  Escrituras despues de la final:", feed.almacen.escrituras)
+        feed.seguir(
+            "estudiante-" + str(i),
+            "final-campeonato",
+        )
 
     for i in range(300):
-        feed.publicar(Publicacion("e" + str(i), "equipo-" + str(i), 300 + i, "Entrenamiento"))
+        feed.seguir(
+            "ana",
+            "equipo-" + str(i),
+        )
+
+    feed.publicar(
+        Publicacion(
+            "p1",
+            "futbol-arquitectura",
+            100,
+            "Partido el jueves 18:00",
+        )
+    )
+
+    print(
+        "  Escrituras despues del equipo de arquitectura:",
+        feed.almacen.escrituras,
+    )
+
+    feed.publicar(
+        Publicacion(
+            "p2",
+            "final-campeonato",
+            200,
+            "La final es el sabado",
+        )
+    )
+
+    print(
+        "  Escrituras despues de la final:",
+        feed.almacen.escrituras,
+    )
+
+    for i in range(300):
+        feed.publicar(
+            Publicacion(
+                "e" + str(i),
+                "equipo-" + str(i),
+                300 + i,
+                "Entrenamiento",
+            )
+        )
+
     antes = feed.almacen.lecturas
     primeras = feed.leer("ana", 3)
-    print("  ana lee su feed:", primeras, "con", feed.almacen.lecturas - antes, "lecturas")
-    print("  Escrituras en total:", feed.almacen.escrituras)
+
+    print(
+        "  ana lee su feed:",
+        primeras,
+        "con",
+        feed.almacen.lecturas - antes,
+        "lecturas",
+    )
+
+    print(
+        "  Escrituras en total:",
+        feed.almacen.escrituras,
+    )
 
 
 if __name__ == "__main__":
     print("Fan-out on write:")
     simular(FeedEnEscritura())
+
     print("Fan-out on read:")
     simular(FeedEnLectura())

@@ -38,4 +38,105 @@ Esta vez no hay codigo de partida. Corre las pruebas con:
 """
 
 from actividad import Publicacion
-# TODO: escribe aqui la clase OrdenadorDeFeed.
+
+
+class OrdenadorDeFeed:
+    def __init__(self, interacciones, equipos_de):
+        self.interacciones = interacciones
+        self.equipos_de = equipos_de
+
+    def puntaje(self, publicacion, estudiante, ahora):
+        cantidad_de_interacciones = self.interacciones.get(
+            publicacion.id,
+            0,
+        )
+
+        equipos = self.equipos_de.get(
+            estudiante,
+            [],
+        )
+
+        multiplicador = 1
+
+        if publicacion.autor in equipos:
+            multiplicador = 3
+
+        horas = (
+            ahora - publicacion.momento
+        ) // 60
+
+        return (
+            (cantidad_de_interacciones + 1)
+            * multiplicador
+            / (1 + horas)
+        )
+
+    def ordenar(
+        self,
+        publicaciones,
+        estudiante,
+        ahora,
+        cantidad,
+    ):
+        pendientes = sorted(
+            publicaciones,
+            key=lambda publicacion: (
+                -self.puntaje(
+                    publicacion,
+                    estudiante,
+                    ahora,
+                ),
+                -publicacion.momento,
+                publicacion.id,
+            ),
+        )
+
+        resultado = []
+
+        while len(pendientes) > 0 and len(resultado) < cantidad:
+            posicion = 0
+
+            if len(resultado) >= 2:
+                ultimo_autor = resultado[-1].autor
+                penultimo_autor = resultado[-2].autor
+                siguiente_autor = pendientes[0].autor
+
+                if (
+                    ultimo_autor == penultimo_autor
+                    and siguiente_autor == ultimo_autor
+                ):
+                    for i in range(len(pendientes)):
+                        if pendientes[i].autor != ultimo_autor:
+                            posicion = i
+                            break
+
+            publicacion = pendientes.pop(posicion)
+            resultado.append(publicacion)
+
+        return resultado
+
+    def espacios_mas_reservados(
+        self,
+        reservas,
+        ahora,
+        cantidad,
+    ):
+        conteos = {}
+        inicio_de_la_ventana = ahora - 10080
+
+        for espacio, momento in reservas:
+            if inicio_de_la_ventana < momento <= ahora:
+                conteos[espacio] = conteos.get(
+                    espacio,
+                    0,
+                ) + 1
+
+        ordenados = sorted(
+            conteos.items(),
+            key=lambda elemento: (
+                -elemento[1],
+                elemento[0],
+            ),
+        )
+
+        return ordenados[:cantidad]
