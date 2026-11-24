@@ -15,9 +15,69 @@ Anota en la bitacora del README, por cada prueba: con que mensaje fallo,
 que cambiaste para que pase, y que refactorizaste.
 """
 
+import pytest
+
 from cupos_ejercicio2 import CupoSemanal
 
 
 def test_sin_reservas_puede_reservar():
     cupo = CupoSemanal()
     assert cupo.puede_reservar("ana", "2026-11-16")
+
+
+def test_con_dos_reservas_todavia_puede_reservar():
+    cupo = CupoSemanal()
+    cupo.registrar("r1", "ana", "2026-11-16")
+    cupo.registrar("r2", "ana", "2026-11-18")
+    assert cupo.puede_reservar("ana", "2026-11-20")
+
+
+def test_con_tres_reservas_ya_no_puede_reservar():
+    cupo = CupoSemanal()
+    for i in range(3):
+        cupo.registrar(f"r{i}", "ana", "2026-11-16")
+    assert not cupo.puede_reservar("ana", "2026-11-16")
+
+
+def test_las_reservas_de_otra_semana_no_cuentan():
+    cupo = CupoSemanal()
+    for i in range(3):
+        cupo.registrar(f"r{i}", "ana", "2026-11-16")
+    assert not cupo.puede_reservar("ana", "2026-11-22")
+    assert cupo.puede_reservar("ana", "2026-11-23")
+
+
+def test_cancelar_libera_un_lugar():
+    cupo = CupoSemanal()
+    for i in range(3):
+        cupo.registrar(f"r{i}", "ana", "2026-11-16")
+    cupo.cancelar("r0")
+    assert cupo.puede_reservar("ana", "2026-11-16")
+
+
+def test_un_equipo_oficial_puede_tener_seis_reservas():
+    cupo = CupoSemanal()
+    cupo.registrar_equipo_oficial("futbol-usfq")
+    for i in range(6):
+        assert cupo.puede_reservar("futbol-usfq", "2026-11-16")
+        cupo.registrar(f"r{i}", "futbol-usfq", "2026-11-16")
+    assert not cupo.puede_reservar("futbol-usfq", "2026-11-16")
+
+
+def test_la_cuarta_reserva_se_rechaza_sin_guardarse():
+    cupo = CupoSemanal()
+    for i in range(3):
+        cupo.registrar(f"r{i}", "ana", "2026-11-16")
+
+    with pytest.raises(ValueError, match="cupo semanal agotado"):
+        cupo.registrar("r3", "ana", "2026-11-17")
+
+    assert not cupo.puede_reservar("ana", "2026-11-17")
+    cupo.cancelar("r0")
+    assert cupo.puede_reservar("ana", "2026-11-17")
+
+
+def test_cancelar_una_reserva_desconocida_lanza():
+    cupo = CupoSemanal()
+    with pytest.raises(ValueError, match="reserva desconocida"):
+        cupo.cancelar("no-existe")

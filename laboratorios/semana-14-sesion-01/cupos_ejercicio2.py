@@ -32,7 +32,36 @@ from datetime import date
 
 
 def semana_de(fecha):
-    """La semana de una fecha "AAAA-MM-DD", como (anio, numero de semana).
-    Dos fechas de la misma semana (de lunes a domingo) dan lo mismo."""
     anio, semana, _ = date.fromisoformat(fecha).isocalendar()
     return (anio, semana)
+
+
+class CupoSemanal:
+    def __init__(self):
+        self._reservas = {}
+        self._equipos_oficiales = set()
+
+    def puede_reservar(self, estudiante, fecha):
+        semana = semana_de(fecha)
+        activas = 0
+        for titular, semana_reserva in self._reservas.values():
+            if titular == estudiante and semana_reserva == semana:
+                activas += 1
+        limite = 3
+        if estudiante in self._equipos_oficiales:
+            limite = 6
+        return activas < limite
+
+    def registrar(self, id_reserva, estudiante, fecha):
+        if not self.puede_reservar(estudiante, fecha):
+            raise ValueError("cupo semanal agotado")
+        self._reservas[id_reserva] = (estudiante, semana_de(fecha))
+
+    def cancelar(self, id_reserva):
+        if id_reserva not in self._reservas:
+            raise ValueError("reserva desconocida")
+        del self._reservas[id_reserva]
+
+    def registrar_equipo_oficial(self, estudiante):
+        self._equipos_oficiales.add(estudiante)
+
